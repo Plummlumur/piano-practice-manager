@@ -72,6 +72,9 @@ class App {
     }
 
     initializeNavigation() {
+        // Initialize mobile menu
+        this.initializeMobileMenu();
+        
         // Add click handlers to navigation links
         const navLinks = document.querySelectorAll('.nav-menu a');
         navLinks.forEach(link => {
@@ -80,6 +83,8 @@ class App {
                 const href = link.getAttribute('href');
                 const viewName = href.substring(1); // Remove the # symbol
                 this.showView(viewName);
+                // Close mobile menu after navigation
+                this.closeMobileMenu();
             });
         });
 
@@ -91,6 +96,80 @@ class App {
 
         // Set initial URL state
         history.replaceState({ view: 'dashboard' }, '', '#dashboard');
+    }
+
+    initializeMobileMenu() {
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const navMenu = document.getElementById('nav-menu');
+        
+        if (mobileMenuToggle && navMenu) {
+            mobileMenuToggle.addEventListener('click', () => {
+                this.toggleMobileMenu();
+            });
+
+            // Close mobile menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!mobileMenuToggle.contains(e.target) && !navMenu.contains(e.target)) {
+                    this.closeMobileMenu();
+                }
+            });
+
+            // Close mobile menu on window resize if screen becomes large
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 768) {
+                    this.closeMobileMenu();
+                }
+            });
+
+            // Handle touch events for mobile
+            let touchStartX = 0;
+            let touchEndX = 0;
+
+            navMenu.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            });
+
+            navMenu.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                this.handleSwipeGesture();
+            });
+
+            // Swipe right to close menu
+            const handleSwipeGesture = () => {
+                if (touchEndX > touchStartX + 50) {
+                    this.closeMobileMenu();
+                }
+            };
+            this.handleSwipeGesture = handleSwipeGesture;
+        }
+    }
+
+    toggleMobileMenu() {
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const navMenu = document.getElementById('nav-menu');
+        
+        if (mobileMenuToggle && navMenu) {
+            mobileMenuToggle.classList.toggle('active');
+            navMenu.classList.toggle('active');
+            
+            // Prevent body scroll when menu is open
+            if (navMenu.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+    }
+
+    closeMobileMenu() {
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const navMenu = document.getElementById('nav-menu');
+        
+        if (mobileMenuToggle && navMenu) {
+            mobileMenuToggle.classList.remove('active');
+            navMenu.classList.remove('active');
+            document.body.style.overflow = '';
+        }
     }
 
     showView(viewName, updateHistory = true) {
