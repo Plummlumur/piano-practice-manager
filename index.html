@@ -32,6 +32,7 @@
                 <li><a href="#pieces" data-lang="nav_pieces">Musical Pieces</a></li>
                 <li><a href="#exercises" data-lang="nav_exercises">Technical Exercises</a></li>
                 <li><a href="#sessions" data-lang="nav_sessions">Practice Sessions</a></li>
+                <li><a href="#logout" onclick="window.auth.logout()" class="logout-link">Logout</a></li>
             </ul>
         </nav>
 
@@ -143,7 +144,10 @@
 
     <!-- Scripts -->
     <script src="js/lang/en.js"></script>
-    <script src="js/database.js"></script>
+    <!-- Use API database instead of SQLite -->
+    <script src="js/api-client.js"></script>
+    <script src="js/database-api.js"></script>
+    <script src="js/components/auth.js"></script>
     <script src="js/components/modal.js"></script>
     <script src="js/components/calendar.js"></script>
     <script src="js/components/dashboard.js"></script>

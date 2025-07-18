@@ -10,7 +10,18 @@ class App {
             // Show loading screen
             this.showLoading();
 
-            // Initialize database
+            // Initialize database (API client)
+            window.db = new DatabaseAPI();
+
+            // Check if user is authenticated
+            const isAuthenticated = await window.auth.initialize();
+            if (!isAuthenticated) {
+                this.hideLoading();
+                window.auth.showLoginForm();
+                return;
+            }
+
+            // Initialize database connection
             await window.db.initialize();
 
             // Apply language translations
@@ -24,10 +35,17 @@ class App {
             this.showView('dashboard');
 
             this.isInitialized = true;
-            console.log('Piano Practice Manager initialized successfully');
+            console.log('Con Bravura Practice Manager initialized successfully');
         } catch (error) {
             console.error('Failed to initialize application:', error);
-            this.showError('Failed to initialize application. Please refresh the page.');
+            this.hideLoading();
+            
+            // If authentication failed, show login form
+            if (error.message.includes('Authentication') || error.message.includes('authentication')) {
+                window.auth.showLoginForm();
+            } else {
+                this.showError('Failed to initialize application. Please refresh the page.');
+            }
         }
     }
 
