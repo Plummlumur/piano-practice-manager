@@ -1,15 +1,15 @@
 // English language file
 window.lang = {
     // General
-    loading: "Loading Piano Practice Manager...",
-    app_title: "Piano Practice Manager",
+    loading: "Loading Con Bravura...",
+    app_title: "Con Bravura – Practice & Repertoire Assistant",
     
     // Navigation
-    nav_dashboard: "Dashboard",
-    nav_calendar: "Training Calendar",
-    nav_pieces: "Piano Pieces",
-    nav_exercises: "Finger Exercises",
-    nav_sessions: "Training Sessions",
+    nav_dashboard: "Practice Overview",
+    nav_calendar: "Practice Calendar",
+    nav_pieces: "Musical Pieces",
+    nav_exercises: "Technical Exercises",
+    nav_sessions: "Practice Sessions",
     
     // Dashboard
     dashboard_title: "Practice Overview",
@@ -23,9 +23,9 @@ window.lang = {
     // Calendar
     training_calendar: "Training Calendar",
     
-    // Piano Pieces
-    piano_pieces: "Piano Pieces",
-    add_piece: "Add Piece",
+    // Musical Pieces
+    piano_pieces: "Musical Pieces",
+    add_piece: "Add Musical Piece",
     piece_name: "Piece Name",
     composer: "Composer",
     work_classification: "Work Classification",
@@ -34,27 +34,28 @@ window.lang = {
     status_training: "In Training",
     status_repertoire: "Repertoire",
     play_count: "Play Count",
+    play_count_note: "This represents how many times you have played this piece.",
     last_played: "Last Played",
     created_date: "Created",
     
-    // Finger Exercises
-    finger_exercises: "Finger Exercises",
+    // Technical Exercises
+    finger_exercises: "Technical Exercises",
     add_exercise: "Add Exercise",
     exercise_name: "Exercise Name",
     exercise_description: "Description",
     last_practiced: "Last Practiced",
     
-    // Training Sessions
-    training_sessions: "Training Sessions",
-    add_session: "Add Session",
+    // Practice Sessions
+    training_sessions: "Practice Sessions",
+    add_session: "Add Practice Session",
     session_date: "Date",
     session_duration: "Duration (minutes)",
     session_status: "Status",
     status_planned: "Planned",
     status_completed: "Completed",
-    finger_exercises_section: "Finger Exercises",
-    training_pieces_section: "Training Pieces",
-    repertoire_pieces_section: "Repertoire Pieces",
+    finger_exercises_section: "Technical Exercises",
+    training_pieces_section: "Study Pieces",
+    repertoire_pieces_section: "Performance Repertoire",
     
     // Common
     toggle_view: "Toggle View",
@@ -90,14 +91,14 @@ window.lang = {
     
     // Messages
     confirm_delete: "Are you sure you want to delete this item?",
-    session_completed: "Training session completed successfully!",
+    session_completed: "Practice session completed successfully!",
     max_hours_exceeded: "Maximum 10 hours per day exceeded!",
     required_field: "This field is required",
     
     // Form labels
-    select_exercises: "Select Finger Exercises",
-    select_training_pieces: "Select Training Pieces",
-    select_repertoire_pieces: "Select Repertoire Pieces",
+    select_exercises: "Select Technical Exercises",
+    select_training_pieces: "Select Study Pieces",
+    select_repertoire_pieces: "Select Performance Repertoire",
     no_items_available: "No items available",
     
     // Validation

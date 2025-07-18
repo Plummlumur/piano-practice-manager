@@ -46,6 +46,18 @@ class Dashboard {
             };
         });
 
+        // Calculate weekly total
+        const weeklyTotal = chartData.reduce((total, day) => total + day.minutes, 0);
+        const weeklyHours = Math.floor(weeklyTotal / 60);
+        const weeklyMinutes = weeklyTotal % 60;
+        
+        // Update subtitle
+        let subtitleText = `Total: ${weeklyTotal} minutes`;
+        if (weeklyHours > 0) {
+            subtitleText = `Total: ${weeklyHours}h ${weeklyMinutes}min`;
+        }
+        document.getElementById('practice-time-subtitle').textContent = subtitleText;
+
         this.practiceTimeChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -61,18 +73,39 @@ class Dashboard {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 10,
+                        bottom: 40,
+                        left: 10,
+                        right: 10
+                    }
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
                         title: {
                             display: true,
-                            text: 'Minutes'
+                            text: 'Minutes',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            color: '#1a1a1a'
                         }
                     },
                     x: {
                         title: {
                             display: true,
-                            text: 'Date'
+                            text: 'Date',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            color: '#1a1a1a',
+                            padding: {
+                                top: 15
+                            }
                         }
                     }
                 },
@@ -105,6 +138,9 @@ class Dashboard {
 
         const stats = window.db.getDashboardStats();
         
+        // Update subtitle with total pieces
+        document.getElementById('pieces-status-subtitle').textContent = `Total: ${stats.totalPieces} pieces`;
+        
         if (stats.totalPieces === 0) {
             // Show empty state
             ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
@@ -136,9 +172,40 @@ class Dashboard {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 10,
+                        bottom: 30,
+                        left: 10,
+                        right: 10
+                    }
+                },
                 plugins: {
                     legend: {
-                        position: 'bottom'
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            color: '#1a1a1a'
+                        },
+                        onClick: function(e, legendItem, legend) {
+                            // Use Chart.js default behavior but track visibility
+                            const chart = legend.chart;
+                            const dataset = chart.data.datasets[legendItem.datasetIndex];
+                            
+                            // Toggle dataset visibility
+                            dataset.hidden = !dataset.hidden;
+                            
+                            // Store visibility state for each data point
+                            chart.dataVisibility = chart.dataVisibility || {};
+                            chart.dataVisibility[legendItem.index] = !dataset.hidden;
+                            
+                            // Update chart
+                            chart.update();
+                        }
                     },
                     tooltip: {
                         callbacks: {
@@ -150,9 +217,61 @@ class Dashboard {
                                 return `${label}: ${value} (${percentage}%)`;
                             }
                         }
+                    },
+                    datalabels: {
+                        display: function(context) {
+                            return context.parsed > 0; // Only show label if value > 0
+                        },
+                        color: 'white',
+                        font: {
+                            weight: 'bold',
+                            size: 16
+                        },
+                        formatter: function(value, context) {
+                            return value;
+                        }
                     }
                 }
-            }
+            },
+            plugins: [{
+                id: 'datalabels',
+                afterDatasetsDraw: function(chart) {
+                    const ctx = chart.ctx;
+                    chart.data.datasets.forEach((dataset, i) => {
+                        const meta = chart.getDatasetMeta(i);
+                        
+                        // Skip hidden datasets
+                        if (dataset.hidden) return;
+                        
+                        meta.data.forEach((element, index) => {
+                            const value = dataset.data[index];
+                            
+                            // Check visibility using our custom tracking
+                            let isVisible = value > 0 && element;
+                            
+                            if (chart.dataVisibility !== undefined) {
+                                // Use our custom visibility tracking
+                                isVisible = isVisible && chart.dataVisibility[index] !== false;
+                            }
+                            
+                            if (isVisible) {
+                                try {
+                                    const position = element.tooltipPosition();
+                                    if (position && position.x && position.y) {
+                                        ctx.fillStyle = 'white';
+                                        ctx.font = 'bold 16px Arial';
+                                        ctx.textAlign = 'center';
+                                        ctx.textBaseline = 'middle';
+                                        ctx.fillText(value, position.x, position.y);
+                                    }
+                                } catch (e) {
+                                    // Element might be hidden, skip silently
+                                }
+                            }
+                        });
+                    });
+                }
+            }]
         });
     }
 

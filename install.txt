@@ -1,0 +1,414 @@
+================================================================================
+    CON BRAVURA – PRACTICE & REPERTOIRE ASSISTANT
+    Installation and Deployment Guide
+================================================================================
+
+OVERVIEW
+--------
+Con Bravura is a classical music practice management application with a 
+Node.js/Express backend and MariaDB database. This guide covers installation 
+for both development and production environments.
+
+SYSTEM REQUIREMENTS
+------------------
+- Node.js 16.0 or higher
+- MariaDB 10.5 or higher
+- npm or yarn package manager
+- Git (for cloning repository)
+
+QUICK START (Development)
+------------------------
+1. Clone the repository:
+   git clone https://github.com/Plummlumur/piano-practice-manager.git
+   cd piano-practice-manager
+
+2. Install backend dependencies:
+   cd backend
+   npm install
+
+3. Set up environment variables:
+   cp .env.example .env
+   # Edit .env with your database credentials
+
+4. Initialize database:
+   npm run db:init
+
+5. Seed with demo data (optional):
+   npm run db:seed
+
+6. Start the backend server:
+   npm run dev
+
+7. Open frontend in browser:
+   Open index.html in your browser or serve with a local server
+
+DETAILED INSTALLATION INSTRUCTIONS
+==================================
+
+STEP 1: PREREQUISITES
+--------------------
+1.1. Install Node.js
+   - Download from: https://nodejs.org/
+   - Verify installation: node --version && npm --version
+
+1.2. Install MariaDB
+   - Download from: https://mariadb.org/download/
+   - Or use package manager:
+     # Ubuntu/Debian
+     sudo apt update && sudo apt install mariadb-server
+     
+     # macOS with Homebrew
+     brew install mariadb
+     
+     # Windows: Download installer from website
+
+1.3. Start MariaDB service
+   - Linux: sudo systemctl start mariadb
+   - macOS: brew services start mariadb
+   - Windows: Start from Services or system tray
+
+1.4. Secure MariaDB installation
+   sudo mysql_secure_installation
+
+STEP 2: DATABASE SETUP
+---------------------
+2.1. Create database and user
+   mysql -u root -p
+   CREATE DATABASE con_bravura CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'conbravura'@'localhost' IDENTIFIED BY 'your_secure_password';
+   GRANT ALL PRIVILEGES ON con_bravura.* TO 'conbravura'@'localhost';
+   FLUSH PRIVILEGES;
+   EXIT;
+
+2.2. Test database connection
+   mysql -u conbravura -p con_bravura
+
+STEP 3: BACKEND INSTALLATION
+---------------------------
+3.1. Navigate to backend directory
+   cd backend
+
+3.2. Install dependencies
+   npm install
+
+3.3. Configure environment variables
+   cp .env.example .env
+   
+   Edit .env file with your settings:
+   # Database Configuration
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_NAME=con_bravura
+   DB_USER=conbravura
+   DB_PASSWORD=your_secure_password
+   
+   # JWT Configuration
+   JWT_SECRET=your_very_secure_jwt_secret_key_here
+   JWT_EXPIRES_IN=7d
+   
+   # Server Configuration
+   PORT=3000
+   NODE_ENV=development
+   
+   # Security
+   BCRYPT_ROUNDS=12
+   CORS_ORIGIN=http://localhost:8080
+
+3.4. Initialize database schema
+   npm run db:init
+
+3.5. Seed database with demo data (optional)
+   npm run db:seed
+   
+   Demo credentials:
+   Username: demo_user
+   Password: DemoPassword123!
+
+STEP 4: FRONTEND SETUP
+---------------------
+4.1. Navigate to project root
+   cd ..
+
+4.2. Update API endpoint (if different from localhost:3000)
+   Edit js/api-client.js:
+   constructor(baseURL = 'http://your-server:3000/api')
+
+4.3. Serve frontend files
+   Option A: Simple HTTP server
+   python3 -m http.server 8080
+   
+   Option B: Node.js server
+   npm install -g http-server
+   http-server -p 8080
+   
+   Option C: Use any web server (Apache, Nginx, etc.)
+
+STEP 5: START THE APPLICATION
+----------------------------
+5.1. Start backend server
+   cd backend
+   npm run dev    # Development mode with auto-reload
+   # OR
+   npm start      # Production mode
+
+5.2. Access the application
+   Open browser and navigate to: http://localhost:8080
+
+PRODUCTION DEPLOYMENT
+====================
+
+ENVIRONMENT PREPARATION
+----------------------
+1. Set NODE_ENV=production in .env
+2. Use strong JWT_SECRET (generate with: openssl rand -base64 32)
+3. Configure proper CORS_ORIGIN for your domain
+4. Set up SSL/TLS certificates
+5. Use a process manager (PM2, systemd, etc.)
+
+STEP 1: SERVER SETUP
+-------------------
+1.1. Install dependencies
+   # Ubuntu/Debian
+   sudo apt update
+   sudo apt install nginx mariadb-server nodejs npm git
+
+1.2. Create application user
+   sudo useradd -m -s /bin/bash conbravura
+   sudo su - conbravura
+
+1.3. Clone repository
+   git clone https://github.com/Plummlumur/piano-practice-manager.git
+   cd piano-practice-manager
+
+STEP 2: DATABASE SETUP
+---------------------
+2.1. Secure MariaDB
+   sudo mysql_secure_installation
+
+2.2. Create production database
+   mysql -u root -p
+   CREATE DATABASE con_bravura_prod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'conbravura_prod'@'localhost' IDENTIFIED BY 'very_secure_password';
+   GRANT ALL PRIVILEGES ON con_bravura_prod.* TO 'conbravura_prod'@'localhost';
+   FLUSH PRIVILEGES;
+   EXIT;
+
+STEP 3: BACKEND DEPLOYMENT
+-------------------------
+3.1. Install PM2 process manager
+   sudo npm install -g pm2
+
+3.2. Configure environment
+   cd backend
+   cp .env.example .env
+   # Edit .env with production settings
+
+3.3. Install dependencies
+   npm install --only=production
+
+3.4. Initialize database
+   npm run db:init
+
+3.5. Start with PM2
+   pm2 start server.js --name "con-bravura-backend"
+   pm2 startup  # Enable auto-start on boot
+   pm2 save     # Save current process list
+
+STEP 4: NGINX CONFIGURATION
+--------------------------
+4.1. Create Nginx configuration
+   sudo nano /etc/nginx/sites-available/con-bravura
+
+   server {
+       listen 80;
+       server_name your-domain.com;
+       
+       # Frontend static files
+       location / {
+           root /home/conbravura/piano-practice-manager;
+           index index.html;
+           try_files $uri $uri/ /index.html;
+       }
+       
+       # API proxy
+       location /api {
+           proxy_pass http://localhost:3000;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_cache_bypass $http_upgrade;
+       }
+   }
+
+4.2. Enable the site
+   sudo ln -s /etc/nginx/sites-available/con-bravura /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl reload nginx
+
+STEP 5: SSL/TLS SETUP (Recommended)
+----------------------------------
+5.1. Install Certbot
+   sudo apt install certbot python3-certbot-nginx
+
+5.2. Obtain SSL certificate
+   sudo certbot --nginx -d your-domain.com
+
+5.3. Test auto-renewal
+   sudo certbot renew --dry-run
+
+STEP 6: FIREWALL CONFIGURATION
+-----------------------------
+6.1. Configure UFW (Ubuntu)
+   sudo ufw allow OpenSSH
+   sudo ufw allow 'Nginx Full'
+   sudo ufw enable
+
+MONITORING AND MAINTENANCE
+=========================
+
+MONITORING
+----------
+1. Check backend status:
+   pm2 status
+   pm2 logs con-bravura-backend
+
+2. Check database:
+   mysql -u conbravura_prod -p con_bravura_prod
+   SHOW TABLES;
+
+3. Check Nginx:
+   sudo systemctl status nginx
+   sudo tail -f /var/log/nginx/error.log
+
+BACKUP STRATEGY
+--------------
+1. Database backup script:
+   #!/bin/bash
+   DATE=$(date +%Y%m%d_%H%M%S)
+   mysqldump -u conbravura_prod -p con_bravura_prod > /backups/con_bravura_$DATE.sql
+   gzip /backups/con_bravura_$DATE.sql
+
+2. Automated backups with cron:
+   crontab -e
+   # Daily backup at 2 AM
+   0 2 * * * /home/conbravura/backup.sh
+
+UPDATES
+-------
+1. Update application:
+   cd /home/conbravura/piano-practice-manager
+   git pull origin main
+   cd backend
+   npm install --only=production
+   pm2 restart con-bravura-backend
+
+2. Database migrations:
+   npm run db:migrate  # If migration scripts exist
+
+TROUBLESHOOTING
+==============
+
+COMMON ISSUES
+------------
+1. Database connection failed
+   - Check MariaDB service: sudo systemctl status mariadb
+   - Verify credentials in .env file
+   - Check database exists: mysql -u root -p
+
+2. Port already in use
+   - Check running processes: sudo netstat -tulpn | grep :3000
+   - Kill process: sudo kill -9 <PID>
+
+3. Permission denied
+   - Check file permissions: ls -la
+   - Fix ownership: sudo chown -R conbravura:conbravura /path/to/app
+
+4. API requests failing
+   - Check CORS settings in .env
+   - Verify API endpoint URL in frontend
+   - Check network connectivity
+
+5. Authentication not working
+   - Verify JWT_SECRET is set
+   - Check token expiration settings
+   - Clear browser localStorage
+
+LOGS AND DEBUGGING
+-----------------
+1. Backend logs:
+   pm2 logs con-bravura-backend
+   tail -f backend/logs/app.log
+
+2. Database logs:
+   sudo tail -f /var/log/mysql/error.log
+
+3. Nginx logs:
+   sudo tail -f /var/log/nginx/access.log
+   sudo tail -f /var/log/nginx/error.log
+
+PERFORMANCE OPTIMIZATION
+=======================
+
+DATABASE OPTIMIZATION
+--------------------
+1. Add indexes for better performance:
+   CREATE INDEX idx_user_pieces ON piano_pieces(user_id, status);
+   CREATE INDEX idx_session_date ON training_sessions(user_id, session_date);
+
+2. Optimize MariaDB configuration:
+   sudo nano /etc/mysql/mariadb.conf.d/50-server.cnf
+   # Add under [mysqld]
+   innodb_buffer_pool_size = 256M
+   query_cache_size = 64M
+
+NGINX OPTIMIZATION
+-----------------
+1. Enable gzip compression:
+   gzip on;
+   gzip_types text/plain text/css application/json application/javascript;
+
+2. Add caching headers:
+   location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+       expires 1y;
+       add_header Cache-Control "public, immutable";
+   }
+
+NODE.JS OPTIMIZATION
+-------------------
+1. Use production environment:
+   NODE_ENV=production
+
+2. Enable clustering (if needed):
+   pm2 start server.js -i max --name "con-bravura-backend"
+
+SECURITY CHECKLIST
+==================
+☐ Change default database passwords
+☐ Use strong JWT secret
+☐ Enable SSL/TLS certificates
+☐ Configure firewall rules
+☐ Set up regular backups
+☐ Keep dependencies updated
+☐ Monitor access logs
+☐ Use fail2ban for SSH protection
+☐ Disable unnecessary services
+☐ Set up monitoring/alerting
+
+SUPPORT
+=======
+For issues and support:
+- GitHub: https://github.com/Plummlumur/piano-practice-manager/issues
+- Documentation: See README.md and backend/README.md
+- API Documentation: http://localhost:3000/api (when running)
+
+VERSION
+=======
+Installation Guide Version: 1.0.0
+Compatible with: Con Bravura v1.0.0-alpha
+Last Updated: 2025-01-18
+
+================================================================================

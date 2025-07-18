@@ -87,7 +87,7 @@ class Pieces {
                     <span class="status-badge status-${piece.status.toLowerCase().replace(' ', '-')}">
                         ${piece.status}
                     </span>
-                    • Play Count: ${piece.play_counter}
+                    • Play Count: <span class="play-count-display" onclick="pieces.editPlayCount(${piece.id}, ${piece.play_counter})">${piece.play_counter}</span>
                     • Last Played: ${lastPlayedText}
                     • Added: ${createdText}
                 </div>
@@ -125,7 +125,7 @@ class Pieces {
                 <span class="status-badge status-${piece.status.toLowerCase().replace(' ', '-')}">
                     ${piece.status}
                 </span><br>
-                <strong>Play Count:</strong> ${piece.play_counter}<br>
+                <strong>Play Count:</strong> <span class="play-count-display" onclick="pieces.editPlayCount(${piece.id}, ${piece.play_counter})">${piece.play_counter}</span><br>
                 <strong>Last Played:</strong> ${lastPlayedText}<br>
                 <strong>Added:</strong> ${createdText}
             </div>
@@ -152,6 +152,13 @@ class Pieces {
         if (piece) {
             window.modal.showPieceForm(piece);
         }
+    }
+
+    editPlayCount(pieceId, currentCount) {
+        const piece = window.db.getPieceById(pieceId);
+        if (!piece) return;
+
+        window.modal.showPlayCountForm(piece, currentCount);
     }
 
     deletePiece(pieceId) {
