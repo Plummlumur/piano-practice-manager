@@ -34,6 +34,7 @@ window.lang = {
     status_training: "In Training",
     status_repertoire: "Repertoire",
     play_count: "Play Count",
+    play_count_note: "This represents how many times you have played this piece.",
     last_played: "Last Played",
     created_date: "Created",
     

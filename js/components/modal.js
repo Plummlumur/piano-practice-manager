@@ -95,9 +95,15 @@ class Modal {
                         </select>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="piece-source">${window.lang.source}</label>
-                    <input type="text" id="piece-source" name="source" value="${piece?.source || ''}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="piece-source">${window.lang.source}</label>
+                        <input type="text" id="piece-source" name="source" value="${piece?.source || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label for="piece-play-count">${window.lang.play_count}</label>
+                        <input type="number" id="piece-play-count" name="play_count" min="0" value="${piece?.play_counter || 0}">
+                    </div>
                 </div>
             </form>
         `;
@@ -119,7 +125,8 @@ class Modal {
             composer: formData.get('composer').trim(),
             work_classification: formData.get('work_classification').trim(),
             source: formData.get('source').trim(),
-            status: formData.get('status')
+            status: formData.get('status'),
+            play_count: parseInt(formData.get('play_count')) || 0
         };
         
         // Validation
@@ -140,6 +147,75 @@ class Modal {
         } catch (error) {
             console.error('Error saving piece:', error);
             alert('Error saving piece. Please try again.');
+        }
+    }
+
+    showPlayCountForm(piece, currentCount) {
+        const title = 'Edit Play Count';
+        
+        const content = `
+            <div class="play-count-form">
+                <p><strong>${piece.name}</strong> by ${piece.composer}</p>
+                <div class="form-group">
+                    <label for="play-count-input">${window.lang.play_count}:</label>
+                    <input type="number" id="play-count-input" min="0" value="${currentCount}" 
+                           style="width: 100px; text-align: center; font-size: 1.2rem;">
+                </div>
+                <p style="font-size: 0.9rem; color: #666; margin-top: 1rem;">
+                    ${window.lang.play_count_note || 'This represents how many times you have played this piece.'}
+                </p>
+            </div>
+        `;
+        
+        const footer = `
+            <button type="button" onclick="modal.hide()" class="btn btn-secondary">${window.lang.cancel}</button>
+            <button type="button" onclick="modal.savePlayCount(${piece.id})" class="btn btn-primary">${window.lang.save}</button>
+        `;
+        
+        this.show(content, { title, footer });
+        
+        // Focus and select the input
+        setTimeout(() => {
+            const input = document.getElementById('play-count-input');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }, 100);
+    }
+
+    savePlayCount(pieceId) {
+        const input = document.getElementById('play-count-input');
+        const playCount = parseInt(input.value) || 0;
+        
+        if (playCount < 0) {
+            alert('Play count cannot be negative.');
+            return;
+        }
+        
+        try {
+            const piece = window.db.getPieceById(pieceId);
+            if (!piece) {
+                throw new Error('Piece not found');
+            }
+            
+            // Update only the play count, keeping other fields unchanged
+            const updatedPiece = {
+                name: piece.name,
+                composer: piece.composer,
+                work_classification: piece.work_classification,
+                source: piece.source,
+                status: piece.status,
+                play_count: playCount
+            };
+            
+            window.db.updatePiece(pieceId, updatedPiece);
+            
+            this.hide();
+            window.app.refreshCurrentView();
+        } catch (error) {
+            console.error('Error updating play count:', error);
+            alert('Error updating play count. Please try again.');
         }
     }
 

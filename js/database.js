@@ -200,7 +200,7 @@ class DatabaseManager {
     updatePiece(id, piece) {
         const stmt = this.db.prepare(`
             UPDATE piano_pieces 
-            SET name = ?, composer = ?, work_classification = ?, source = ?, status = ?
+            SET name = ?, composer = ?, work_classification = ?, source = ?, status = ?, play_counter = ?
             WHERE id = ?
         `);
         stmt.run([
@@ -209,6 +209,7 @@ class DatabaseManager {
             piece.work_classification || '',
             piece.source || '',
             piece.status,
+            piece.play_count || 0,
             id
         ]);
         stmt.free();
