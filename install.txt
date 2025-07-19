@@ -5,16 +5,22 @@
 
 OVERVIEW
 --------
-Con Bravura is a classical music practice management application with a 
-Node.js/Express backend and MariaDB database. This guide covers installation 
-for both development and production environments.
+Con Bravura is a classical music practice management application featuring:
+- Beautiful classical music-themed interface
+- Node.js/Express REST API backend
+- MariaDB database with multi-user support
+- JWT authentication and secure user management
+- Comprehensive practice tracking and analytics
+
+This guide covers installation for both development and production environments.
 
 SYSTEM REQUIREMENTS
 ------------------
-- Node.js 16.0 or higher
-- MariaDB 10.5 or higher
+- Node.js 16.0 or higher (recommended: 18.x LTS)
+- MariaDB 10.5 or higher (recommended: 10.11 LTS)
 - npm or yarn package manager
 - Git (for cloning repository)
+- Modern web browser (Chrome, Firefox, Safari, Edge)
 
 QUICK START (Development)
 ------------------------
@@ -26,21 +32,40 @@ QUICK START (Development)
    cd backend
    npm install
 
-3. Set up environment variables:
-   cp .env.example .env
-   # Edit .env with your database credentials
+3. Set up MariaDB database:
+   # Create database and user (see detailed instructions below)
+   mysql -u root -p
+   CREATE DATABASE con_bravura CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'conbravura'@'localhost' IDENTIFIED BY 'your_password';
+   GRANT ALL PRIVILEGES ON con_bravura.* TO 'conbravura'@'localhost';
+   FLUSH PRIVILEGES;
+   EXIT;
 
-4. Initialize database:
+4. Set up environment variables:
+   cp .env.example .env
+   # Edit .env with your database credentials (see example below)
+
+5. Initialize database:
    npm run db:init
 
-5. Seed with demo data (optional):
+6. Seed with demo data (optional):
    npm run db:seed
 
-6. Start the backend server:
+7. Start the backend server:
    npm run dev
 
-7. Open frontend in browser:
-   Open index.html in your browser or serve with a local server
+8. Serve the frontend:
+   # In a new terminal, from project root:
+   cd ..
+   python3 -m http.server 8080
+   # OR use any web server
+
+9. Access the application:
+   Open http://localhost:8080 in your browser
+   
+   Demo Account:
+   Username: demo_user
+   Password: DemoPassword123!
 
 DETAILED INSTALLATION INSTRUCTIONS
 ==================================
@@ -101,9 +126,10 @@ STEP 3: BACKEND INSTALLATION
    DB_NAME=con_bravura
    DB_USER=conbravura
    DB_PASSWORD=your_secure_password
+   DB_CONNECTION_LIMIT=10
    
-   # JWT Configuration
-   JWT_SECRET=your_very_secure_jwt_secret_key_here
+   # JWT Configuration (IMPORTANT: Generate a secure secret!)
+   JWT_SECRET=your_very_secure_jwt_secret_key_here_min_32_chars
    JWT_EXPIRES_IN=7d
    
    # Server Configuration
@@ -113,6 +139,17 @@ STEP 3: BACKEND INSTALLATION
    # Security
    BCRYPT_ROUNDS=12
    CORS_ORIGIN=http://localhost:8080
+   
+   # Rate Limiting
+   RATE_LIMIT_WINDOW_MS=900000
+   RATE_LIMIT_MAX_REQUESTS=100
+   
+   # Logging
+   LOG_LEVEL=info
+   LOG_FILE=logs/app.log
+   
+   IMPORTANT: Generate a secure JWT secret:
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 3.4. Initialize database schema
    npm run db:init
@@ -134,14 +171,24 @@ STEP 4: FRONTEND SETUP
    constructor(baseURL = 'http://your-server:3000/api')
 
 4.3. Serve frontend files
-   Option A: Simple HTTP server
+   The frontend must be served through HTTP (not file://) for API calls to work.
+   
+   Option A: Python HTTP server (recommended for development)
    python3 -m http.server 8080
+   # OR for Python 2:
+   python -m SimpleHTTPServer 8080
    
-   Option B: Node.js server
+   Option B: Node.js http-server
    npm install -g http-server
-   http-server -p 8080
+   http-server -p 8080 -c-1
    
-   Option C: Use any web server (Apache, Nginx, etc.)
+   Option C: Live Server (VS Code extension)
+   Install "Live Server" extension and right-click index.html -> "Open with Live Server"
+   
+   Option D: Use any web server (Apache, Nginx, etc.)
+   
+   IMPORTANT: The frontend MUST be served via HTTP protocol, not opened directly
+   as a file:// URL, otherwise API requests will be blocked by CORS policy.
 
 STEP 5: START THE APPLICATION
 ----------------------------
@@ -317,25 +364,44 @@ COMMON ISSUES
 1. Database connection failed
    - Check MariaDB service: sudo systemctl status mariadb
    - Verify credentials in .env file
-   - Check database exists: mysql -u root -p
+   - Test connection: mysql -u conbravura -p con_bravura
+   - Check if database exists: SHOW DATABASES;
+   - Verify user permissions: SHOW GRANTS FOR 'conbravura'@'localhost';
 
-2. Port already in use
-   - Check running processes: sudo netstat -tulpn | grep :3000
-   - Kill process: sudo kill -9 <PID>
+2. Backend server won't start
+   - Port already in use: sudo netstat -tulpn | grep :3000
+   - Kill conflicting process: sudo kill -9 <PID>
+   - Check Node.js version: node --version (must be 16+)
+   - Missing dependencies: rm -rf node_modules && npm install
 
-3. Permission denied
-   - Check file permissions: ls -la
-   - Fix ownership: sudo chown -R conbravura:conbravura /path/to/app
+3. Frontend can't connect to backend
+   - CORS error: Check CORS_ORIGIN in .env matches frontend URL
+   - Network error: Verify backend is running on http://localhost:3000
+   - Check browser console for specific error messages
+   - Ensure frontend is served via HTTP, not file:// protocol
 
-4. API requests failing
-   - Check CORS settings in .env
-   - Verify API endpoint URL in frontend
-   - Check network connectivity
+4. Authentication issues
+   - "Token expired" error: JWT_SECRET changed or token expired
+   - Login fails: Check backend logs for authentication errors
+   - Clear browser data: localStorage.clear() in browser console
+   - Verify demo user exists: npm run db:seed
 
-5. Authentication not working
-   - Verify JWT_SECRET is set
-   - Check token expiration settings
-   - Clear browser localStorage
+5. Database initialization fails
+   - Permission denied: Check MariaDB user privileges
+   - Schema errors: Drop database and recreate: DROP DATABASE con_bravura;
+   - Connection timeout: Check DB_CONNECTION_LIMIT in .env
+   - SQL syntax errors: Check MariaDB version compatibility
+
+6. API endpoints return 404
+   - Backend not running: Check if server started successfully
+   - Wrong API URL: Verify baseURL in js/api-client.js
+   - Route not found: Check backend logs for request paths
+
+7. npm install fails
+   - Clear npm cache: npm cache clean --force
+   - Delete node_modules: rm -rf node_modules package-lock.json
+   - Update npm: npm install -g npm@latest
+   - Check Node.js compatibility with dependencies
 
 LOGS AND DEBUGGING
 -----------------
@@ -405,10 +471,73 @@ For issues and support:
 - Documentation: See README.md and backend/README.md
 - API Documentation: http://localhost:3000/api (when running)
 
-VERSION
-=======
-Installation Guide Version: 1.0.0
-Compatible with: Con Bravura v1.0.0-alpha
+VERIFICATION CHECKLIST
+=====================
+After installation, verify everything works:
+
+☐ Backend server starts without errors
+☐ Database connection successful
+☐ Frontend loads at http://localhost:8080
+☐ Can register a new user account
+☐ Can login with demo account (demo_user / DemoPassword123!)
+☐ Dashboard displays without errors
+☐ Can add a new musical piece
+☐ Can create a practice session
+☐ Charts display correctly
+☐ Calendar view works (week/month toggle)
+☐ Can logout and login again
+
+QUICK TEST COMMANDS
+------------------
+# Test backend API health
+curl http://localhost:3000/health
+
+# Test database connection
+mysql -u conbravura -p con_bravura -e "SHOW TABLES;"
+
+# Check backend logs
+cd backend && npm run dev
+
+# Test authentication
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo_user","password":"DemoPassword123!"}'
+
+GETTING HELP
+============
+If you encounter issues:
+
+1. Check the troubleshooting section above
+2. Review backend logs: backend/logs/app.log
+3. Check browser console for frontend errors
+4. Verify all prerequisites are installed correctly
+5. Try the demo account first before creating new users
+
+For additional support:
+- GitHub Issues: https://github.com/Plummlumur/piano-practice-manager/issues
+- Backend API docs: http://localhost:3000/api (when running)
+- Frontend features: See README.md and CLAUDE.md
+
+VERSION INFORMATION
+==================
+Installation Guide Version: 1.1.0
+Compatible with: Con Bravura v1.0.0-beta (MariaDB Backend)
+Backend API Version: 1.0.0
+Database Schema Version: 1.0.0
 Last Updated: 2025-01-18
+
+CHANGELOG
+=========
+v1.1.0 (2025-01-18):
+- Added MariaDB backend installation instructions
+- Enhanced troubleshooting section with API-specific issues
+- Added verification checklist and test commands
+- Improved environment configuration examples
+- Added frontend serving requirements and CORS information
+
+v1.0.0 (2025-01-18):
+- Initial installation guide
+- Basic development and production setup
+- Security and deployment instructions
 
 ================================================================================

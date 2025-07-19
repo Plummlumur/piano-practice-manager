@@ -1,0 +1,632 @@
+================================================================================
+    CON BRAVURA – PRACTICE & REPERTOIRE ASSISTANT
+    Docker Development Environment Guide (macOS)
+================================================================================
+
+OVERVIEW
+--------
+This guide provides step-by-step instructions for setting up Con Bravura in a
+Docker development environment on macOS. Docker simplifies setup by providing
+pre-configured containers for the application and database.
+
+BENEFITS OF DOCKER SETUP
+------------------------
+✓ Consistent development environment across all machines
+✓ No need to install MariaDB locally
+✓ Easy cleanup and reset of development data
+✓ Isolated environment prevents conflicts with other projects
+✓ Quick setup with single command
+✓ Built-in networking between containers
+
+PREREQUISITES (macOS)
+--------------------
+1. Docker Desktop for Mac
+   - Download: https://docs.docker.com/desktop/mac/install/
+   - System Requirements: macOS 10.15 or newer
+   - Hardware: Intel chip or Apple Silicon (M1/M2)
+
+2. Git (usually pre-installed on macOS)
+   - Verify: git --version
+
+3. Text editor (VS Code, Sublime, etc.)
+
+QUICK START WITH DOCKER
+=======================
+
+STEP 1: INSTALL DOCKER DESKTOP
+------------------------------
+1.1. Download Docker Desktop for Mac
+   Visit: https://docs.docker.com/desktop/mac/install/
+   Choose: Mac with Intel chip OR Mac with Apple chip
+
+1.2. Install Docker Desktop
+   - Open the downloaded .dmg file
+   - Drag Docker to Applications folder
+   - Launch Docker from Applications
+
+1.3. Verify Docker installation
+   docker --version
+   docker-compose --version
+
+STEP 2: CLONE THE REPOSITORY
+----------------------------
+2.1. Clone and navigate to project
+   git clone https://github.com/Plummlumur/piano-practice-manager.git
+   cd piano-practice-manager
+
+STEP 3: CREATE DOCKER CONFIGURATION
+-----------------------------------
+3.1. Create Dockerfile for backend
+   Create file: backend/Dockerfile
+
+# Node.js backend Dockerfile
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy application code
+COPY . .
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Start the application
+CMD ["npm", "start"]
+
+3.2. Create .dockerignore file
+   Create file: backend/.dockerignore
+
+node_modules
+npm-debug.log
+logs/*.log
+.env.local
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+
+3.3. Create docker-compose.yml in project root
+   Create file: docker-compose.yml
+
+version: '3.8'
+
+services:
+  # MariaDB Database
+  database:
+    image: mariadb:10.11
+    container_name: conbravura-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123
+      MYSQL_DATABASE: con_bravura
+      MYSQL_USER: conbravura
+      MYSQL_PASSWORD: conbravura123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - conbravura-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build: ./backend
+    container_name: conbravura-backend
+    environment:
+      NODE_ENV: development
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_NAME: con_bravura
+      DB_USER: conbravura
+      DB_PASSWORD: conbravura123
+      DB_CONNECTION_LIMIT: 10
+      JWT_SECRET: docker_development_jwt_secret_key_not_for_production_use_32_chars
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      BCRYPT_ROUNDS: 10
+      CORS_ORIGIN: http://localhost:8080
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 1000
+      LOG_LEVEL: debug
+      LOG_FILE: logs/app.log
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+      - backend_logs:/usr/src/app/logs
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - conbravura-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Frontend (optional - for serving static files)
+  frontend:
+    image: nginx:alpine
+    container_name: conbravura-frontend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/usr/share/nginx/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    networks:
+      - conbravura-network
+
+volumes:
+  mariadb_data:
+  backend_logs:
+
+networks:
+  conbravura-network:
+    driver: bridge
+
+3.4. Create Nginx configuration for frontend
+   Create directory and file: docker/nginx.conf
+
+server {
+    listen 80;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Frontend static files
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        add_header Expires "0";
+    }
+
+    # API proxy to backend
+    location /api {
+        proxy_pass http://backend:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Static assets caching
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1h;
+        add_header Cache-Control "public, immutable";
+    }
+}
+
+STEP 4: BUILD AND RUN WITH DOCKER COMPOSE
+-----------------------------------------
+4.1. Start all services
+   docker-compose up --build
+
+   This command will:
+   - Build the backend Docker image
+   - Pull MariaDB image
+   - Create network and volumes
+   - Start database and wait for it to be healthy
+   - Start backend API server
+   - Start Nginx frontend server
+
+4.2. Verify services are running
+   docker-compose ps
+
+   Expected output:
+   NAME                 COMMAND                  SERVICE    STATUS
+   conbravura-backend   "docker-entrypoint.s…"   backend    Up
+   conbravura-db        "docker-entrypoint.s…"   database   Up (healthy)
+   conbravura-frontend  "/docker-entrypoint.…"   frontend   Up
+
+STEP 5: INITIALIZE DATABASE WITH SAMPLE DATA
+--------------------------------------------
+5.1. Initialize database schema (if not auto-loaded)
+   docker-compose exec backend npm run db:init
+
+5.2. Seed database with demo data
+   docker-compose exec backend npm run db:seed
+
+STEP 6: ACCESS THE APPLICATION
+-----------------------------
+6.1. Open application in browser
+   http://localhost:8080
+
+6.2. Login with demo account
+   Username: demo_user
+   Password: DemoPassword123!
+
+6.3. Test API directly (optional)
+   # Health check
+   curl http://localhost:3000/health
+   
+   # API documentation
+   curl http://localhost:3000/api
+
+DOCKER DEVELOPMENT WORKFLOW
+===========================
+
+DAILY DEVELOPMENT COMMANDS
+--------------------------
+# Start all services
+docker-compose up
+
+# Start in background (detached mode)
+docker-compose up -d
+
+# Stop all services
+docker-compose down
+
+# Restart specific service
+docker-compose restart backend
+
+# View logs
+docker-compose logs backend
+docker-compose logs database
+docker-compose logs -f backend  # Follow logs
+
+# Execute commands in containers
+docker-compose exec backend npm run db:seed
+docker-compose exec database mysql -u conbravura -pconbravura123 con_bravura
+
+DEVELOPMENT WITH LIVE RELOAD
+----------------------------
+The Docker setup includes volume mapping for live development:
+
+1. Backend changes: Modify files in ./backend/
+   - Changes are reflected immediately due to volume mapping
+   - Restart backend if needed: docker-compose restart backend
+
+2. Frontend changes: Modify files in project root
+   - Changes are served immediately by Nginx
+
+3. Database changes: Modify schema.sql
+   - Rebuild database: docker-compose down -v && docker-compose up --build
+
+USEFUL DOCKER COMMANDS
+=====================
+
+CONTAINER MANAGEMENT
+-------------------
+# List running containers
+docker ps
+
+# List all containers (including stopped)
+docker ps -a
+
+# Enter container shell
+docker-compose exec backend sh
+docker-compose exec database bash
+
+# View container logs
+docker logs conbravura-backend
+docker logs conbravura-db
+
+# Check container health
+docker inspect --format='{{.State.Health.Status}}' conbravura-backend
+
+DATA MANAGEMENT
+--------------
+# Backup database
+docker-compose exec database mysqldump -u conbravura -pconbravura123 con_bravura > backup.sql
+
+# Restore database
+docker-compose exec -T database mysql -u conbravura -pconbravura123 con_bravura < backup.sql
+
+# Reset all data (WARNING: Destroys all data)
+docker-compose down -v
+docker-compose up --build
+
+# View database volume
+docker volume inspect piano-practice-manager_mariadb_data
+
+ENVIRONMENT CLEANUP
+------------------
+# Stop and remove containers
+docker-compose down
+
+# Remove containers and volumes (DESTRUCTIVE)
+docker-compose down -v
+
+# Remove containers, volumes, and images
+docker-compose down -v --rmi all
+
+# Remove all unused Docker objects
+docker system prune -a
+
+TROUBLESHOOTING DOCKER SETUP
+============================
+
+COMMON ISSUES
+------------
+1. Docker Desktop not running
+   Error: "Cannot connect to the Docker daemon"
+   Solution: Start Docker Desktop from Applications
+
+2. Port already in use
+   Error: "Port 3000 is already allocated"
+   Solution: 
+   - Check what's using the port: lsof -i :3000
+   - Stop conflicting service or change port in docker-compose.yml
+
+3. Database connection failed
+   Error: "ECONNREFUSED" or "Connection refused"
+   Solution:
+   - Wait for database to be healthy: docker-compose logs database
+   - Check if database container is running: docker ps
+
+4. Permission denied errors
+   Error: "Permission denied" when accessing files
+   Solution:
+   - Fix file permissions: chmod -R 755 ./backend
+   - Check Docker Desktop file sharing settings
+
+5. Out of disk space
+   Error: "No space left on device"
+   Solution:
+   - Clean Docker: docker system prune -a
+   - Remove unused volumes: docker volume prune
+
+6. Backend build fails
+   Error: "npm install" fails during build
+   Solution:
+   - Clear npm cache: docker-compose build --no-cache backend
+   - Check network connectivity from container
+
+7. Frontend not loading
+   Error: "502 Bad Gateway" or "Connection refused"
+   Solution:
+   - Check backend is running: docker-compose ps
+   - Verify Nginx configuration: docker-compose logs frontend
+
+DEBUGGING COMMANDS
+-----------------
+# Check service health
+docker-compose exec backend curl -f http://localhost:3000/health
+
+# Test database connection
+docker-compose exec backend node -e "
+const { testConnection } = require('./config/database');
+testConnection().then(r => console.log('DB:', r));
+"
+
+# View environment variables
+docker-compose exec backend env | grep DB_
+
+# Check network connectivity
+docker-compose exec backend ping database
+docker-compose exec frontend ping backend
+
+# Monitor resource usage
+docker stats
+
+PERFORMANCE OPTIMIZATION
+========================
+
+DOCKER SETTINGS FOR MAC
+-----------------------
+1. Increase Docker Desktop resources:
+   - Open Docker Desktop preferences
+   - Go to Resources → Advanced
+   - Recommended settings:
+     * CPUs: 4 (or half of available cores)
+     * Memory: 4 GB (minimum), 8 GB (recommended)
+     * Swap: 1 GB
+     * Disk image size: 64 GB
+
+2. Enable file sharing optimization:
+   - Go to Preferences → Resources → File Sharing
+   - Add project directory if not automatically included
+
+3. Use Docker Desktop settings for better performance:
+   - Enable "Use Rosetta for x86/amd64 emulation" (Apple Silicon)
+   - Enable "Use the new Virtualization framework"
+
+VOLUME OPTIMIZATION
+------------------
+# Use bind mounts for development
+volumes:
+  - ./backend:/usr/src/app:cached  # Faster on macOS
+  - /usr/src/app/node_modules      # Anonymous volume for node_modules
+
+# Use named volumes for data persistence
+volumes:
+  - mariadb_data:/var/lib/mysql
+
+PRODUCTION CONSIDERATIONS
+========================
+
+DOCKER FOR PRODUCTION
+---------------------
+1. Use multi-stage builds for smaller images
+2. Set NODE_ENV=production
+3. Use specific image tags (not :latest)
+4. Implement proper secrets management
+5. Use docker-compose.prod.yml for production overrides
+
+Example production override:
+# docker-compose.prod.yml
+version: '3.8'
+services:
+  backend:
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: warn
+    volumes: []  # Remove development volumes
+
+SECURITY CONSIDERATIONS
+----------------------
+1. Change default passwords in production
+2. Use Docker secrets for sensitive data
+3. Run containers as non-root users
+4. Keep base images updated
+5. Scan images for vulnerabilities
+
+MONITORING AND LOGS
+==================
+
+LOG AGGREGATION
+--------------
+# Centralized logging
+docker-compose logs --timestamps
+
+# Save logs to file
+docker-compose logs > app.log
+
+# Real-time monitoring
+docker-compose logs -f
+
+HEALTH MONITORING
+----------------
+# Check all services health
+docker-compose ps
+
+# Monitor resource usage
+docker stats conbravura-backend conbravura-db
+
+# Container inspection
+docker inspect conbravura-backend
+
+BACKUP AND RESTORE
+=================
+
+AUTOMATED BACKUP SCRIPT
+-----------------------
+Create file: scripts/backup.sh
+
+#!/bin/bash
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="./backups"
+
+mkdir -p $BACKUP_DIR
+
+# Backup database
+docker-compose exec -T database mysqldump \
+  -u conbravura -pconbravura123 con_bravura \
+  > $BACKUP_DIR/database_$DATE.sql
+
+# Backup volumes
+docker run --rm -v piano-practice-manager_mariadb_data:/data \
+  -v $(pwd)/$BACKUP_DIR:/backup alpine \
+  tar czf /backup/mariadb_volume_$DATE.tar.gz -C /data .
+
+echo "Backup completed: $BACKUP_DIR/"
+
+Make executable: chmod +x scripts/backup.sh
+
+DEVELOPMENT TIPS
+===============
+
+EFFICIENT WORKFLOW
+-----------------
+1. Use .dockerignore to exclude unnecessary files
+2. Keep containers running for faster development
+3. Use docker-compose for consistency
+4. Map volumes for live code reloading
+5. Use separate terminals for logs and commands
+
+IDE INTEGRATION
+--------------
+1. VS Code: Install "Remote-Containers" extension
+2. Configure devcontainer.json for integrated development
+3. Use Docker extension for container management
+
+GIT INTEGRATION
+--------------
+# Add to .gitignore
+node_modules/
+logs/
+.env
+docker-compose.override.yml
+
+USEFUL ALIASES
+-------------
+Add to ~/.zshrc or ~/.bash_profile:
+
+alias dcu="docker-compose up"
+alias dcd="docker-compose down"
+alias dcl="docker-compose logs"
+alias dcr="docker-compose restart"
+alias dce="docker-compose exec"
+
+QUICK REFERENCE
+==============
+
+ESSENTIAL COMMANDS
+-----------------
+docker-compose up --build    # Start with rebuild
+docker-compose down          # Stop all services
+docker-compose logs -f       # View live logs
+docker-compose ps            # List services
+docker-compose restart       # Restart services
+docker system prune          # Clean up Docker
+
+SERVICE URLS
+-----------
+Frontend:    http://localhost:8080
+Backend API: http://localhost:3000
+Database:    localhost:3306 (from host)
+Health:      http://localhost:3000/health
+API Docs:    http://localhost:3000/api
+
+DEFAULT CREDENTIALS
+------------------
+Database Root: root / rootpassword123
+Database User: conbravura / conbravura123
+Demo Account:  demo_user / DemoPassword123!
+
+SUPPORT AND RESOURCES
+====================
+
+DOCUMENTATION
+------------
+- Docker Desktop: https://docs.docker.com/desktop/mac/
+- Docker Compose: https://docs.docker.com/compose/
+- Con Bravura: See README.md and install.txt
+
+TROUBLESHOOTING
+--------------
+1. Check Docker Desktop is running
+2. Verify container health: docker-compose ps
+3. Review logs: docker-compose logs [service]
+4. Test connections: docker-compose exec [service] [command]
+5. Clean and rebuild: docker-compose down -v && docker-compose up --build
+
+VERSION INFORMATION
+==================
+Docker Guide Version: 1.0.0
+Compatible with: Con Bravura v1.0.0-beta (MariaDB Backend)
+Docker Compose Version: 3.8
+Tested on: macOS 12+ with Docker Desktop 4.15+
+Last Updated: 2025-01-18
+
+================================================================================
