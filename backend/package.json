@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "test": "jest",
     "db:init": "node scripts/initDatabase.js",
+    "db:init-fixed": "node scripts/initDatabaseFixed.js",
     "db:seed": "node scripts/seedDatabase.js",
     "db:migrate": "node scripts/migrate.js"
   },

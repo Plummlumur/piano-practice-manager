@@ -15,18 +15,38 @@ async function initDatabase() {
         const statements = schemaSql
             .split(';')
             .map(stmt => stmt.trim())
-            .filter(stmt => stmt.length > 0);
+            .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+
+        // Separate table creation from view creation for proper execution order
+        const createStatements = [];
+        const viewStatements = [];
+        const otherStatements = [];
 
         for (const statement of statements) {
-            if (statement.toUpperCase().startsWith('CREATE') || 
-                statement.toUpperCase().startsWith('INSERT') ||
-                statement.toUpperCase().startsWith('USE')) {
-                try {
-                    await executeQuery(statement);
-                    logger.info(`Executed: ${statement.substring(0, 50)}...`);
-                } catch (err) {
-                    logger.warn(`Warning executing statement: ${err.message}`);
-                }
+            const upperStatement = statement.toUpperCase();
+            if (upperStatement.startsWith('CREATE TABLE') || 
+                upperStatement.startsWith('USE')) {
+                createStatements.push(statement);
+            } else if (upperStatement.startsWith('CREATE VIEW')) {
+                viewStatements.push(statement);
+            } else if (upperStatement.startsWith('CREATE') || 
+                       upperStatement.startsWith('INSERT')) {
+                otherStatements.push(statement);
+            }
+        }
+
+        // Execute in proper order: USE -> CREATE TABLE -> CREATE VIEW -> INSERT
+        const allStatements = [...createStatements, ...viewStatements, ...otherStatements];
+
+        for (const statement of allStatements) {
+            try {
+                await executeQuery(statement);
+                const statementType = statement.split(' ')[1]?.toUpperCase() || 'UNKNOWN';
+                logger.info(`✅ Executed ${statementType}: ${statement.substring(0, 50)}...`);
+            } catch (err) {
+                logger.error(`❌ Failed to execute statement: ${statement.substring(0, 50)}...`);
+                logger.error(`Error: ${err.message}`);
+                // Don't exit on error, but log it for debugging
             }
         }
 

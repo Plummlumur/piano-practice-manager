@@ -387,10 +387,12 @@ COMMON ISSUES
    - Verify demo user exists: npm run db:seed
 
 5. Database initialization fails
+   - Table doesn't exist errors: Use fixed init script: npm run db:init-fixed
    - Permission denied: Check MariaDB user privileges
    - Schema errors: Drop database and recreate: DROP DATABASE con_bravura;
    - Connection timeout: Check DB_CONNECTION_LIMIT in .env
    - SQL syntax errors: Check MariaDB version compatibility
+   - View creation fails: Tables must be created before views
 
 6. API endpoints return 404
    - Backend not running: Check if server started successfully
@@ -502,6 +504,32 @@ cd backend && npm run dev
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"demo_user","password":"DemoPassword123!"}'
+
+DATABASE INITIALIZATION TROUBLESHOOTING
+---------------------------------------
+If you encounter "Table doesn't exist" errors during database initialization:
+
+PROBLEM: "Database query error: Table 'con_bravura.users' doesn't exist"
+
+SOLUTION 1: Use the fixed initialization script
+cd backend
+npm run db:init-fixed
+
+SOLUTION 2: Manual database setup
+mysql -u root -p
+DROP DATABASE IF EXISTS con_bravura;
+CREATE DATABASE con_bravura CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+EXIT;
+
+cd backend
+npm run db:init-fixed
+npm run db:seed
+
+SOLUTION 3: Step-by-step manual execution
+mysql -u conbravura -p con_bravura < database/init-tables-only.sql
+mysql -u conbravura -p con_bravura < database/init-views.sql
+
+The fixed script ensures tables are created before views, preventing dependency errors.
 
 GETTING HELP
 ============
