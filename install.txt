@@ -46,7 +46,8 @@ QUICK START (Development)
    # Edit .env with your database credentials (see example below)
 
 5. Initialize database:
-   npm run db:init
+   npm run db:init-fixed  # Use fixed script to prevent table dependency errors
+   # OR: npm run db:init   # Original script (may have dependency issues)
 
 6. Seed with demo data (optional):
    npm run db:seed
@@ -152,7 +153,8 @@ STEP 3: BACKEND INSTALLATION
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 3.4. Initialize database schema
-   npm run db:init
+   npm run db:init-fixed  # Recommended: Prevents table dependency errors
+   # OR: npm run db:init   # Original script (may fail in some environments)
 
 3.5. Seed database with demo data (optional)
    npm run db:seed
@@ -254,7 +256,7 @@ STEP 3: BACKEND DEPLOYMENT
    npm install --only=production
 
 3.4. Initialize database
-   npm run db:init
+   npm run db:init-fixed  # Production-ready: Prevents table dependency errors
 
 3.5. Start with PM2
    pm2 start server.js --name "con-bravura-backend"
